@@ -25,6 +25,8 @@ class WoocommerceDisplayEbitBanner
         $this::wc_qsti_require_woocommerce_plugin();
 
         add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', array($this, 'wc_qsti_custom_query_var'), 10, 2 );
+
+        add_filter('add_shortcode', array($this, ''));
     }
 
     /**
@@ -47,8 +49,10 @@ class WoocommerceDisplayEbitBanner
      * Função para habilitar Woocommerce a retornar dados de pedidos baseado no parametro '_transaction_id'
      * @since 0.1
     */
-    function wc_qsti_custom_query_var( $query, $query_vars ) {
+    function wc_qsti_custom_query_var( $query, $query_vars, $userParameter ) {
         
+        /* Nota: _transaction_id pode ser alterado pelo usuário */
+
         if ( ! empty( $query_vars['_transaction_id'] ) ) {
             $query['meta_query'][] = array(
                 'key' => '_transaction_id',
@@ -69,6 +73,14 @@ class WoocommerceDisplayEbitBanner
         
         return $transaction_id;
     }
+
+    /**
+     * Função para registrar erros
+     * @since 0.1
+     */   
+    private function wc_qsti_register_error($stringError){
+
+    }
     
     /**
      * Função para retornar data da transação do Banco de Dados
@@ -80,6 +92,11 @@ class WoocommerceDisplayEbitBanner
     
         //Verifica se variavel possui algum valor
         if(!is_null($transaction_id)){
+            
+            if (!function_exists('wc_get_orders')) {
+                $this::wc_qsti_register_error('Erro');
+                return;
+            }
             
             $orderData = wc_get_orders(array('_transaction_id' => $transaction_id));
             
