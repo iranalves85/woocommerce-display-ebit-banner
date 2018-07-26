@@ -10,6 +10,8 @@ License: GPL2
 Copyright (C) 2018 Iran
 */
 
+require_once('inc/class-wc-qsti-admin.php');
+
 /**
  * Classe com as funções para implementar banner Ebit
  * @since 0.1
@@ -21,35 +23,37 @@ class WoocommerceDisplayEbitBanner
      * @since 0.1
     */
     function __construct()
-    {
-        $this::wc_qsti_require_woocommerce_plugin();
-
-        add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', array($this, 'wc_qsti_custom_query_var'), 10, 2 );
-
-        add_filter('add_shortcode', array($this, ''));
-    }
-
-    /**
-     * Função requerimentos para inicializar o plugin
-     * @since 0.1
-    */
-    private function wc_qsti_require_woocommerce_plugin(){
-        var_dump($this::wc_qsti_load_order_query());
-    }
+    {   
+        
+    }     
 
     /**
      * Função de inicialização
      * @since 0.1
     */
     public function init(){
+        
+        $adminClass = new WoocommerceQSTIAdmin();
+        $adminClass::wc_qsti_require_woocommerce_plugin();
 
+        /* Add a custom meta_data to query via Woocommerce Query */
+        add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', array($this, 'wc_qsti_custom_query_var'), 10, 2 );
+
+        /* Add shortcode to display banners */
+        add_filter('add_shortcode', array($this, ''));        
+
+        /* Add a new section in Woocommerce Admin */
+        add_filter( 'woocommerce_get_sections_advanced', array($adminClass, 'wc_qsti_admin_config'),10, 2);
+
+        /* Add settings in Woocommerce Admin */
+        add_filter( 'woocommerce_get_settings_advanced', array($adminClass, 'wc_qsti_admin_config_settings'), 1, 2);
     }
     
     /**
      * Função para habilitar Woocommerce a retornar dados de pedidos baseado no parametro '_transaction_id'
      * @since 0.1
     */
-    function wc_qsti_custom_query_var( $query, $query_vars, $userParameter ) {
+    function wc_qsti_custom_query_var( $query, $query_vars, $userParameter = '' ) {
         
         /* Nota: _transaction_id pode ser alterado pelo usuário */
 
