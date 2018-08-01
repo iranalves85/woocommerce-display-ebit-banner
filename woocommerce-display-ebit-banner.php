@@ -18,13 +18,19 @@ require_once('inc/class-wc-qsti-admin.php');
  */
 class WoocommerceDisplayEbitBanner
 {
+    
+    var $min_woocommerce_version;
+    var $option_name; 
+
     /**
      * Função de construção da classe
      * @since 0.1
     */
     function __construct()
     {   
-        
+        //Menor versão Woocommerce suportada
+        $this->min_woocommerce_version = (int) 335;
+        $this->option_name = 'wc_qsti_pagseguro_parameter';
     }     
 
     /**
@@ -32,21 +38,31 @@ class WoocommerceDisplayEbitBanner
      * @since 0.1
     */
     public function init(){
-        
+
+        /** Instanciar classe de admin */
         $adminClass = new WoocommerceQSTIAdmin();
-        $adminClass::wc_qsti_require_woocommerce_plugin();
 
         /* Add a custom meta_data to query via Woocommerce Query */
         add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', array($this, 'wc_qsti_custom_query_var'), 10, 2 );
 
         /* Add shortcode to display banners */
-        add_filter('add_shortcode', array($this, ''));        
+        add_filter('add_shortcode', array($this, '')); 
+        
+        /* Show notice if woocommerce not installed or disabled */
+        add_action('admin_notices', array($adminClass, 'wc_qsti_require_woocommerce_plugin'));
 
         /* Add a new section in Woocommerce Admin */
-        add_filter( 'woocommerce_get_sections_advanced', array($adminClass, 'wc_qsti_admin_config'),10, 2);
+        add_filter( 'woocommerce_get_sections_api', array($adminClass, 'wc_qsti_admin_config'),10, 2);
 
         /* Add settings in Woocommerce Admin */
-        add_filter( 'woocommerce_get_settings_advanced', array($adminClass, 'wc_qsti_admin_config_settings'), 1, 2);
+        add_filter( 'woocommerce_get_settings_api', array($adminClass, 'wc_qsti_admin_config_settings'), 1, 2);
+
+        /** Função para salvar configurações no admin */
+        $saveResult = $adminClass->wc_qsti_save_config($_POST);
+        if(!$saveResult){            
+            /* Mostrar aviso se houve erro ao salvar */
+            add_action('admin_notices', array($adminClass, 'wc_qsti_save_error'));    
+        }
     }
     
     /**
