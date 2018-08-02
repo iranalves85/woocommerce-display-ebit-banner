@@ -20,7 +20,7 @@ class WoocommerceDisplayEbitBanner
 {
     
     var $min_woocommerce_version;
-    var $option_name; 
+    static $option_name; 
 
     /**
      * Função de construção da classe
@@ -30,7 +30,7 @@ class WoocommerceDisplayEbitBanner
     {   
         //Menor versão Woocommerce suportada
         $this->min_woocommerce_version = (int) 335;
-        $this->option_name = 'wc_qsti_pagseguro_parameter';
+        self::$option_name = 'wc_qsti_pagseguro_parameter';
     }     
 
     /**
@@ -49,36 +49,39 @@ class WoocommerceDisplayEbitBanner
         add_filter('add_shortcode', array($this, '')); 
         
         /* Show notice if woocommerce not installed or disabled */
-        add_action('admin_notices', array($adminClass, 'wc_qsti_require_woocommerce_plugin'));
+        add_action( 'admin_notices', array($adminClass, 'wc_qsti_require_woocommerce_plugin') );
 
         /* Add a new section in Woocommerce Admin */
-        add_filter( 'woocommerce_get_sections_api', array($adminClass, 'wc_qsti_admin_config'),10, 2);
+        add_filter( 'woocommerce_get_sections_products', array($adminClass, 'wc_qsti_admin_config'), 10, 2);
 
         /* Add settings in Woocommerce Admin */
-        add_filter( 'woocommerce_get_settings_api', array($adminClass, 'wc_qsti_admin_config_settings'), 1, 2);
+        add_filter( 'woocommerce_get_settings_products', array($adminClass, 'wc_qsti_admin_config_settings'), 1, 2);
+
+        /* Add settings in Woocommerce Admin */
+        add_shortcode( 'wc_qsti_ebit_banner', array($this, 'wc_qsti_show_ebit_banner'), 1, 2);
 
         /** Função para salvar configurações no admin */
         $saveResult = $adminClass->wc_qsti_save_config($_POST);
-        if(!$saveResult){            
-            /* Mostrar aviso se houve erro ao salvar */
-            add_action('admin_notices', array($adminClass, 'wc_qsti_save_error'));    
-        }
+        
     }
     
     /**
      * Função para habilitar Woocommerce a retornar dados de pedidos baseado no parametro '_transaction_id'
      * @since 0.1
     */
-    function wc_qsti_custom_query_var( $query, $query_vars, $userParameter = '' ) {
-        
-        /* Nota: _transaction_id pode ser alterado pelo usuário */
+    function wc_qsti_custom_query_var( $query, $query_vars ) {
 
-        if ( ! empty( $query_vars['_transaction_id'] ) ) {
+        /** Valor armazenado nas configurações */
+        $transaction_id = $this->wc_qsti_load_var();
+        
+        /** Registra parametro para executar querys */
+        if ( ! empty( $query_vars[$transaction_id] ) ) {
             $query['meta_query'][] = array(
-                'key' => '_transaction_id',
-                'value' => esc_attr( $query_vars['_transaction_id'] ),
+                'key'   => $transaction_id,
+                'value' => esc_attr( $query_vars[$transaction_id] )
             );
         }
+
         return $query;
     }
     
@@ -86,12 +89,52 @@ class WoocommerceDisplayEbitBanner
      * Função para verificar variável
      * @since 0.1
     */
-    function wc_qsti_load_var(){
+    public function wc_qsti_load_var(){
     
+        $getDefined = get_option(self::$option_name);
+        
         //Pega parametro via url
-        $transaction_id = (isset($_GET['transaction_id']))? (string) $_GET['transaction_id'] : NULL;
+        $transaction_id = ( !$this->wc_qsti_empty($getDefined) )? $getDefined : '_transaction_id';
         
         return $transaction_id;
+    }
+
+    /**
+     * Função para retornar dados da transação do Banco de Dados
+     * @since 0.1
+    */
+    function wc_qsti_load_order_query(){
+
+        //Retornar parametro do banco
+        $parameterDefined = $this->wc_qsti_load_var();
+
+        /** DEFINIR VALIDAÇÃO DE PÁGINA, SE SHORTCODE ESTIVER NA PÁGINA DE COMPRA FINALIZADA FAZ QUERY BASEADO NELA. SE NÃO, PEGA VALOR VIA PARAMETRO EM URL. */
+        
+        if (!isset($_GET) || !array_key_exists($parameterDefined, $_GET)) {
+            return false;
+        }    
+        
+        //Definindo transacao direto da url
+        $transaction_id = filter_var($_GET[$parameterDefined], FILTER_SANITIZE_SPECIAL_CHARS);
+        
+        if (!function_exists('wc_get_orders')) {
+            $this->wc_qsti_register_error(__('Função "wc_get_orders" não existe. Provavelmente WC plugin desabilitado.', 'wc_qsti'));
+            stop(E_ERROR);
+        }
+        
+        $orderData = wc_get_orders(array('_transaction_id' => $parameterDefined));
+        
+        return $orderData;
+    }
+
+    /**
+     * Função de shortcode para, finalmente, exibir o banner na página de redirecionamento
+     * @since 0.1
+    */    
+    function wc_qsti_show_ebit_banner($atts){
+
+        echo "Mostrar o resultado da query: ";
+        var_dump($this->wc_qsti_load_order_query());
     }
 
     /**
@@ -101,31 +144,35 @@ class WoocommerceDisplayEbitBanner
     private function wc_qsti_register_error($stringError){
 
     }
-    
+
     /**
-     * Função para retornar data da transação do Banco de Dados
+     * Função para verificação de variaveis vazias
      * @since 0.1
-    */
-    function wc_qsti_load_order_query(){
-    
-        $transaction_id = $this::wc_qsti_load_var();
-    
-        //Verifica se variavel possui algum valor
-        if(!is_null($transaction_id)){
-            
-            if (!function_exists('wc_get_orders')) {
-                $this::wc_qsti_register_error('Erro');
-                return;
-            }
-            
-            $orderData = wc_get_orders(array('_transaction_id' => $transaction_id));
-            
-            return $orderData;
+     */   
+    private function wc_qsti_empty($string){
+
+        /** Se versão for maior que PHP 5.4 */
+        if (function_exists('empty')) {
+            return empty($string);
         }
-    
+        
+        /** Se string for vazia */
+        if (is_string($string)) {
+            return $string == '';
+        }
+
+        /** Se numero for menor ou igual a zero */
+        if($String <= 0){
+            return true;
+        } 
+        
+        /** Se array for menor ou igual a zero */
+        if(count($String) <= 0){
+            return true;
+        } 
+
     }
     
-
 }
 
 /**

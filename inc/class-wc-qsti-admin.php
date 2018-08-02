@@ -5,6 +5,15 @@
  */
 class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
 {
+
+    /**
+     * Construtor da classe
+     * @since 0.1
+    */
+    function __construct()
+    {
+        
+    }
         
     /**
      * Função requerimentos para inicializar o plugin
@@ -19,16 +28,18 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
             $wc_plugin_data = get_plugin_data( $wc_path, false, false);
             $wc_current_version = $wc_plugin_data['Version'];
             $wc_version = (int)preg_replace('/[.]/', '', $wc_current_version);
+            
             // CF7 drops the ending ".0" for new major releases (e.g. Version 4.0 instead of 4.0.0...which would make the above version "40")
             // We need to make sure this value has a digit in the 100s place.
-            
             if ( $wc_version < 100 ) {
                 $wc_version = $wc_version * 10;
             }
+
             // If Woocommerce version is < 3.3.5
             if ( $wc_version < $this->min_woocommerce_version ) {
                 echo '<div class="error"><p><strong>'. __('Warning:', 'wc_qsti') . '</strong> '. __('Your Woocommerce version is: ','wc_qtsi') . $wc_current_version .  __('. Display Ebit Banner requires that you have the latest version of Woocommerce installed. Please upgrade now', 'wc_qsti') .'</p></div>';
             }
+
         }
         // If it's not installed and activated, throw an error
         else {
@@ -53,9 +64,6 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
      */
     function wc_qsti_admin_config_settings($settings, $current_section) {
 
-        /* Retorna a opção salva*/
-        $getPreviousData = get_option($this->option_name);
-
         if ($current_section == 'wc_qsti') {
 
             $settings_plugin = array();
@@ -71,11 +79,11 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
             $settings_plugin[] = array(
                 'name'     => __( 'Parametro de Transação', 'wc_qsti' ),
                 'desc_tip' => __( 'This will add a title to your slider', 'wc_qsti' ),
-                'id'       => $this->option_name,
+                'id'       =>  parent::$option_name,
                 'default'  => __('Teste de pagamento', 'wc_qsti'),
                 'type'     => 'text',
                 'css'      => 'max-width: 200px;',
-                'desc'     => __( 'Insira o parametro definido em sua conta.', 'wc_qsti' )
+                'desc'     => __( 'Parametro definido como retorno no seu gateway. Default: "_transaction_id".', 'wc_qsti' )
             );
             
             $settings_plugin[] = array( 
@@ -95,21 +103,22 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
      * Função que salvas as configurações do plugin
      * @since 0.1
      */
-    function wc_qsti_save_config($postData){
+    function wc_qsti_save_config($postData) {
         
         /** Verifica se houve dados enviados via POST */
-        if(!isset($postData) || !array_key_exists($this->option_name, $postData)){
+        if(!isset($postData) || !array_key_exists( parent::$option_name, $postData)){
             return true;
         }
 
         /** Adiciona o valor de config a variavel */
-        $configData = $postData[$this->option_name];
+        $configData = filter_var($postData[parent::$option_name], FILTER_SANITIZE_STRING);
 
         /** Faz o update da configuração no BD Wordpress */
-        $result = update_option( $this->option_name, $configData );
+        $result = update_option(parent::$option_name, $configData);
 
         /** Retorna o resultado */
         return $result;
+        
     }
 
     /**
