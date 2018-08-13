@@ -36,7 +36,7 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
             }
 
             // If Woocommerce version is < 3.3.5
-            if ( $wc_version < $this->min_woocommerce_version ) {
+            if ( $wc_version < parent::$min_woocommerce_version ) {
                 echo '<div class="error"><p><strong>'. __('Warning:', 'wc_qsti') . '</strong> '. __('Your Woocommerce version is: ','wc_qtsi') . $wc_current_version .  __('. Display Ebit Banner requires that you have the latest version of Woocommerce installed. Please upgrade now', 'wc_qsti') .'</p></div>';
             }
 
@@ -54,7 +54,7 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
      * @since 0.1
      */
     function wc_qsti_admin_config($sections) {
-        $sections['wc_qsti'] = __('Banner Ebit', 'wc_qsti');
+        $sections['wc_qsti'] = __('Display Ebit Banner', 'wc_qsti');
         return $sections;
     }
 
@@ -67,20 +67,42 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
         if ($current_section == 'wc_qsti') {
 
             $settings_plugin = array();
-            
+
             // Add Title to the Settings
             $settings_plugin[] = array( 
                 'name' => __( 'Banner Ebit', 'wc_qsti' ), 
                 'type' => 'title', 
                 'desc' => __( 'Aqui você define o parametro que cadastrou em sua conta Pagseguro. Assim conseguimos retornar os dados do pedido para renderizar corretamente o banner Ebit.', 'wc_qsti' ), 
                 'id' => 'wc_qsti' );
+
+            // Add text field option
+            $settings_plugin[] = array(
+                'name'     => __( 'ID Buscapé', 'wc_qsti' ),
+                'desc_tip' => __( 'ID de sua loja no Buscapé', 'wc_qsti' ),
+                'id'       =>  parent::$buscape_id,
+                'default'  => __('', 'wc_qsti'),
+                'type'     => 'text',
+                'css'      => 'max-width: 200px;',
+                'desc'     => __( 'Esse ID é disponibilizado após a integração do banner ocorrer.', 'wc_qsti' )
+            );
+
+            // Add text field option
+            $settings_plugin[] = array(
+                'name'     => __( 'ID Ebit', 'wc_qsti' ),
+                'desc_tip' => __( 'Seu Id fornecido pela Ebit', 'wc_qsti' ),
+                'id'       =>  parent::$ebit_id,
+                'default'  => __('', 'wc_qsti'),
+                'type'     => 'number',
+                'css'      => 'max-width: 200px;',
+                'desc'     => __( 'Id defindo para a sua loja no ambiente Ebit.', 'wc_qsti' )
+            );
             
             // Add text field option
             $settings_plugin[] = array(
                 'name'     => __( 'Parametro de Transação', 'wc_qsti' ),
-                'desc_tip' => __( 'This will add a title to your slider', 'wc_qsti' ),
+                'desc_tip' => __( 'Parametro de retorno definido em seu gateway', 'wc_qsti' ),
                 'id'       =>  parent::$option_name,
-                'default'  => __('Teste de pagamento', 'wc_qsti'),
+                'default'  => __('', 'wc_qsti'),
                 'type'     => 'text',
                 'css'      => 'max-width: 200px;',
                 'desc'     => __( 'Parametro definido como retorno no seu gateway. Default: "_transaction_id".', 'wc_qsti' )
@@ -89,7 +111,7 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
             $settings_plugin[] = array( 
                 'type' => 'sectionend', 
                 'id' => 'wc_qsti' );
-            
+
             return $settings_plugin;
         
         }
@@ -103,21 +125,43 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
      * Função que salvas as configurações do plugin
      * @since 0.1
      */
-    function wc_qsti_save_config($postData) {
-        
+    function wc_qsti_save_config() {
+
         /** Verifica se houve dados enviados via POST */
-        if(!isset($postData) || !array_key_exists( parent::$option_name, $postData)){
+        if(!isset($_POST) || !array_key_exists( parent::$option_name, $_POST) || !array_key_exists(parent::$buscape_id, $_POST) || !array_key_exists(parent::$ebit_id, $_POST)){
             return true;
         }
 
-        /** Adiciona o valor de config a variavel */
-        $configData = filter_var($postData[parent::$option_name], FILTER_SANITIZE_STRING);
+        /** Filtra e adiciona o valor de config a variavel */
+        $configData = filter_var_array($_POST, FILTER_SANITIZE_STRING);
 
-        /** Faz o update da configuração no BD Wordpress */
-        $result = update_option(parent::$option_name, $configData);
+        $update = [];
 
+        /** Faz o update da configuração "BUSCAPE ID" no BD Wordpress */
+        if( parent::wc_qsti_empty($configData[parent::$buscape_id])){
+            $update['buscape_id'] = update_option( parent::$buscape_id, $configData[parent::$buscape_id]);
+        }
+
+        /** Faz o update da configuração "EBIT ID" no BD Wordpress */
+        if( parent::wc_qsti_empty($configData[parent::$ebit_id])){
+            $update['ebit_id'] = update_option( parent::$ebit_id, $configData[parent::$ebit_id]);
+        }
+
+        /** Faz o update da configuração "Parametro" no BD Wordpress */
+        if( parent::wc_qsti_empty($configData[parent::$option_name])){
+            $update['parameter'] = update_option( parent::$option_name, $configData[parent::$option_name]);
+        }
+
+        /* Verifica se houve algum update com sucesso e retorna sucesso*/
+        foreach($update as $key => $value){
+            if($value == TRUE){
+               return TRUE;
+               break; 
+            }
+        }
+        
         /** Retorna o resultado */
-        return $result;
+        return FALSE;
         
     }
 
