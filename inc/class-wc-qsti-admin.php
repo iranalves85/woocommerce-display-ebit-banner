@@ -24,11 +24,11 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
         // Verify that CF7 is active and updated to the required version (currently 3.9.0)
         if ( is_plugin_active('woocommerce/woocommerce.php') ) {
             
-            $wc_path = plugin_dir_path( dirname(__DIR__) ) . 'woocommerce/woocommerce.php';
+            $wc_path = plugin_dir_path(WP_PLUGIN_DIR) . plugin_basename('plugins/woocommerce') . '/woocommerce.php';
             $wc_plugin_data = get_plugin_data( $wc_path, false, false);
             $wc_current_version = $wc_plugin_data['Version'];
             $wc_version = (int)preg_replace('/[.]/', '', $wc_current_version);
-            
+
             // CF7 drops the ending ".0" for new major releases (e.g. Version 4.0 instead of 4.0.0...which would make the above version "40")
             // We need to make sure this value has a digit in the 100s place.
             if ( $wc_version < 100 ) {

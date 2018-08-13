@@ -123,8 +123,8 @@ class WoocommerceDisplayEbitBanner
         //Pega parametro e valor da URL
         if (!isset($_GET) || !array_key_exists($parameterDefined, $_GET)) {
             return false;
-        }    
-
+        } 
+        
         //Definindo transacao direto da url
         $transaction_id = filter_var($_GET[$parameterDefined], FILTER_SANITIZE_SPECIAL_CHARS);
 
@@ -166,6 +166,11 @@ class WoocommerceDisplayEbitBanner
 
         //Retorna dados da transação WC_Order
         $queryTransaction = $this->wc_qsti_load_order_query();
+ 
+        //Finaliza função se resultado for false
+        if(!$queryTransaction){
+            return false;
+        }
 
         //Retorna dados do pedido em forma de array
         $order = $queryTransaction[0]->get_data();
