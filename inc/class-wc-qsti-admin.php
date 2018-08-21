@@ -107,6 +107,23 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
                 'css'      => 'max-width: 200px;',
                 'desc'     => __( 'Parametro definido como retorno no seu gateway. Default: "_transaction_id".', 'wc_qsti' )
             );
+
+            // Add select field option
+            $settings_plugin[] = array(
+                'name'     => __( 'Lightbox', 'wc_qsti' ),
+                'desc_tip' => __( 'Exibir lightbox de avaliação de loja.', 'wc_qsti' ),
+                'id'       =>  parent::$ebit_lightbox,
+                'default'  => __('Não', 'wc_qsti'),
+                'type'     => 'select',
+                'options'   => array(
+                    'false' => 'Não',
+                    'true'  => 'Sim'
+                ),
+                'css'      => 'max-width: 200px;',
+                'desc'     => __( 'Para lojas que ainda não confirmadas na plataforma Ebit, a opção "Não" deve ser selecionada.', 'wc_qsti' )
+            );
+
+            
             
             $settings_plugin[] = array( 
                 'type' => 'sectionend', 
@@ -150,6 +167,11 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
         /** Faz o update da configuração "Parametro" no BD Wordpress */
         if( parent::wc_qsti_empty($configData[parent::$option_name])){
             $update['parameter'] = update_option( parent::$option_name, $configData[parent::$option_name]);
+        }
+
+        /** Faz o update da configuração "Lightbox" no BD Wordpress */
+        if( parent::wc_qsti_empty($configData[parent::$ebit_lightbox])){
+            $update['lightbox'] = update_option( parent::$ebit_lightbox, $configData[parent::$ebit_lightbox]);
         }
 
         /* Verifica se houve algum update com sucesso e retorna sucesso*/
