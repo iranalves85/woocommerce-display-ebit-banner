@@ -37,13 +37,13 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
 
             // If Woocommerce version is < 3.3.5
             if ( $wc_version < parent::$min_woocommerce_version ) {
-                echo '<div class="error"><p><strong>'. __('Warning:', 'wc_qsti') . '</strong> '. __('Your Woocommerce version is: ','wc_qtsi') . $wc_current_version .  __('. Display Ebit Banner requires that you have the latest version of Woocommerce installed. Please upgrade now', 'wc_qsti') .'</p></div>';
+                echo '<div class="error"><p><strong>'. __('Warning:', 'wc_qsti') . '</strong> '. __('Your Woocommerce version is: ','wc_qtsi') . $wc_current_version .  __('. O plugin Display Ebit Banner requer que você tenha o plugin Woocommerce atualizado. A versão atual não é suportada.', 'wc_qsti') .'</p></div>';
             }
 
         }
         // If it's not installed and activated, throw an error
         else {
-            echo '<div class="error"><p>' . __('Woocommerce is not activated. Woocommere Plugin must be installed and activated before you can use Display Ebit Banner', 'wc_qsti') .'</p></div>';
+            echo '<div class="error"><p>' . __('O plugin Woocommerce não está ativado. Por favor, vá para a administração de plugins e ative-o.', 'wc_qsti') .'</p></div>';
         }
 
         return $this->wc_qsti_load_order_query();
@@ -54,7 +54,7 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
      * @since 0.1
      */
     function wc_qsti_admin_config($sections) {
-        $sections['wc_qsti'] = __('Display Ebit Banner', 'wc_qsti');
+        $sections['wc_qsti'] = __('Ebit Banner', 'wc_qsti');
         return $sections;
     }
 
@@ -123,8 +123,28 @@ class WoocommerceQSTIAdmin extends WoocommerceDisplayEbitBanner
                 'desc'     => __( 'Para lojas que ainda não confirmadas na plataforma Ebit, a opção "Não" deve ser selecionada.', 'wc_qsti' )
             );
 
+            // Add text field option
+            $settings_plugin[] = array(
+                'name'     => __( 'Banner Ebit', 'wc_qsti' ),
+                'desc_tip' => __( 'Copie e cole na página de confirmação de compra ou na página definida como retorno.', 'wc_qsti' ),
+                'id'       => 'shortcodes',
+                'default'  => __('', 'wc_qsti'),
+                'desc'     => '[wc_qsti_ebit_banner]',
+                'type'     => 'textarea',
+                'css'      => 'display:none;visibily:none;width:0px !important;',
+            ); 
             
-            
+            // Add text field option
+            $settings_plugin[] = array(
+                'name'     => __( 'Selo Ebit', 'wc_qsti' ),
+                'desc_tip' => __( 'Copie e cole, o selo deve ser inserido em todas as páginas, preferencialmente no rodapé.', 'wc_qsti' ),
+                'id'       => 'shortcodes',
+                'default'  => __('', 'wc_qsti'),
+                'desc'     => '[wc_qsti_ebit_selo]',
+                'type'     => 'textarea',
+                'css'      => 'display:none;visibily:none;width:0px !important;',
+            ); 
+
             $settings_plugin[] = array( 
                 'type' => 'sectionend', 
                 'id' => 'wc_qsti' );

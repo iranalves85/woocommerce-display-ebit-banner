@@ -18,6 +18,7 @@ class WoocommerceDisplayEbitBanner
     static $savedData;
     static $productFieldsKeys;
     static $defaults;
+    private $transactionId;
 
     /**
      * Função de construção da classe
@@ -26,7 +27,7 @@ class WoocommerceDisplayEbitBanner
     function __construct()
     {   
         //Menor versão Woocommerce suportada
-        self::$min_woocommerce_version = (int) 335;
+        self::$min_woocommerce_version = (int) 220;
         self::$option_name      = 'wc_qsti_display_banner_ebit_config';
         self::$buscape_id       = 'wc_qsti_display_banner_buscape_id';
         self::$ebit_id          = 'wc_qsti_display_banner_ebit_id';
@@ -75,9 +76,6 @@ class WoocommerceDisplayEbitBanner
 
         /* Add a custom meta_data to query via Woocommerce Query */
         add_filter('woocommerce_order_data_store_cpt_get_orders_query', array($this, 'wc_qsti_custom_query_var'), 10, 2 );
-
-        /* Add shortcode to display banners */
-        add_filter('add_shortcode', array($this, '')); 
         
         /* Show notice if woocommerce not installed or disabled */
         add_action( 'admin_notices', array($adminClass, 'wc_qsti_require_woocommerce_plugin') );
@@ -92,7 +90,10 @@ class WoocommerceDisplayEbitBanner
         add_action('woocommerce_update_options_products', array($adminClass, 'wc_qsti_save_config'));
 
         /* Add settings in Woocommerce Admin */
-        add_shortcode('wc_qsti_ebit_banner', array($this, 'wc_qsti_show_ebit_banner'), 1, 2);
+        add_shortcode('wc_qsti_ebit_banner', array($this, 'wc_qsti_show_ebit_banner'));
+
+        /* Add settings in Woocommerce Admin */
+        add_shortcode('wc_qsti_ebit_selo', array($this, 'wc_qsti_show_selo_banner'));
         
     }
     
@@ -137,45 +138,48 @@ class WoocommerceDisplayEbitBanner
     */
     function wc_qsti_load_order_query(){
 
-        /** DEFINIR VALIDAÇÃO DE PÁGINA, SE SHORTCODE ESTIVER NA PÁGINA DE COMPRA FINALIZADA FAZ QUERY BASEADO NELA. SE NÃO, PEGA VALOR VIA PARAMETRO EM URL. */
+        //Verifica se função WC que retorna dados dos pedidos
+        if (!function_exists('wc_get_order')) {
+            $this->wc_qsti_register_error(__('Função "wc_get_orders" não existe. Provavelmente WC plugin desabilitado.', 'wc_qsti'), 'woocommerce_plugin_not_active');
+        }
         
         //Retornar parametro do banco
         $parameterDefined = self::$savedData['transaction_id'];
 
+        //Atribui false a variavel
+        $this->transactionId = false;
+
         //Pega parametro e valor da URL
-        if (!isset($_GET) || !array_key_exists($parameterDefined, $_GET)) {
-            return false;
-        } 
-        
-        //Definindo transacao direto da url
-        $transaction_id = filter_var($_GET[$parameterDefined], FILTER_SANITIZE_SPECIAL_CHARS);
-
-        //Verifica se função WC que retorna dados dos pedidos
-        if (!function_exists('wc_get_orders')) {
-            $this->wc_qsti_register_error(__('Função "wc_get_orders" não existe. Provavelmente WC plugin desabilitado.', 'wc_qsti'));
-            stop(E_ERROR);
+        if (isset($_GET) && array_key_exists($parameterDefined, $_GET)) {
+            //Definindo transacao direto da url
+            $this->transactionId = filter_var($_GET[$parameterDefined], FILTER_SANITIZE_SPECIAL_CHARS);
         }
 
-        //Retorna os dados do pedido pelo código da transação
-        $orderData = wc_get_orders(array('_transaction_id' => $transaction_id));
+        if (!$this->transactionId) {
+            //Retorna os dados do pedido pelo 'id'
+            global $wp_query;
+            
+            //Retorna endpoint separado
+            $endpointSplit = preg_split('/\/+/', wc_get_endpoint_url('order-received'));
+            
+            //Verifica se existe algum key com valor vazio
+            $searchEmpty = array_search('', $endpointSplit );
+            
+            //Remove a key
+            if($searchEmpty){
+                unset($endpointSplit[$searchEmpty]);
+            }
 
-        return $orderData;
-    }
+            //Aponta array para ultimo elemento e retorna
+            $endpointVar = end($endpointSplit);
 
-    /**
-     * Função para retornar dados do cliente referente ao pedido
-     * @since 0.1
-    */
-    function wc_qsti_load_costumer_data(){
-
-        //Verifica se função WC que retorna dados dos pedidos
-        if (!function_exists('wc_get_orders')) {
-            $this->wc_qsti_register_error(__('Função "wc_get_orders" não existe. Provavelmente WC plugin desabilitado.', 'wc_qsti'));
-            stop(E_ERROR);
+            //Se existir 'key' senão retorna false
+            $orderData =  (is_array($wp_query->query) && array_key_exists($endpointVar, $wp_query->query))? wc_get_order($wp_query->query[$endpointVar]) : false;
         }
-
-        //Retorna os dados do pedido pelo código da transação
-        $orderData = wc_get_orders(array('_transaction_id' => $transaction_id));
+        else{
+            //Retorna os dados do pedido pelo 'código da transação'
+            $orderData = wc_get_orders(array('_transaction_id' => $this->transactionId));
+        }
 
         return $orderData;
     }
@@ -184,25 +188,24 @@ class WoocommerceDisplayEbitBanner
      * Função de shortcode para, finalmente, exibir o banner na página de redirecionamento
      * @since 0.1
     */    
-    function wc_qsti_show_ebit_banner($atts){
+    function wc_qsti_show_ebit_banner(){
 
         //Retorna dados da transação WC_Order
         $queryTransaction = $this->wc_qsti_load_order_query();
  
         //Finaliza função se resultado for false
         if(!$queryTransaction){
-            $this->wc_qsti_register_error(__('Não foi encontrado nenhum pedido.', 'wc_qsti'));
-            return false;
+            return $this->wc_qsti_register_error(__('Não foi encontrado nenhum pedido.', 'wc_qsti'), '_no_order_found');
         }
 
         //Finaliza função se resultado for false
         if(!self::$savedData['ebit_id']){
-            $this->wc_qsti_register_error(__('Seu id único Ebit não foi cadastrado. Por favor, vá ao ambiente de administração e cadastre.', 'wc_qsti'));
-            return false;
+            return $this->wc_qsti_register_error(__('Seu id único Ebit não foi cadastrado. Por favor, vá ao ambiente de administração e cadastre.', 'wc_qsti'), '_no_ebit_id_registered');
         }
 
         //Retorna dados da objeto (query) do pedido em forma de array
-        $order = $queryTransaction[0]->get_data();
+        $order = (is_array($queryTransaction))? $queryTransaction[0]->get_data() : $queryTransaction->get_data();
+
         //Metadados do pedido
         $shippingMetadata = $order['meta_data'];
         //Dados de envio do pedido
@@ -233,7 +236,7 @@ class WoocommerceDisplayEbitBanner
             'value' => $order['productValue'], //Decimal - Valor de cada produto (obrigatório)
             'quantity' => $order['productQtd'], //Int - qtd de cada produto (obrigatório)
             'productName' => $order['productNames'], //Nome de cada produto (obrigatório)
-            'transactionId' => $order['transaction_id'],//ID da transação (obrigatório)
+            'transactionId' => $order['id'],//ID da transação (obrigatório)
             'sku' => $order['productSku'] //Código SKU de cada produto (obrigatório)
         );
 
@@ -263,6 +266,22 @@ class WoocommerceDisplayEbitBanner
         $html .= '<a id="bannerEbit"></a>';
 
         $html .= '<script type="text/javascript" id="getSelo" src="https://imgs.ebit.com.br/ebitBR/selo-ebit/js/getSelo.js?'. self::$savedData['ebit_id'] .'&lightbox='. self::$savedData['lightbox'] .'"></script>';
+
+        return $html;
+    }
+
+    /**
+     * Função de shortcode para exibir selo Ebit (medalha)
+     * @since 0.1
+    */    
+    function wc_qsti_show_selo_banner(){
+
+        //Finaliza função se resultado for false
+        if(!self::$savedData['ebit_id']){
+            return $this->wc_qsti_register_error(__('Seu id único Ebit não foi cadastrado. Por favor, vá ao ambiente de administração e cadastre.', 'wc_qsti'), '_no_ebit_id_registered');
+        }
+
+        $html = '<a id="seloEbit" href="http://www.ebit.com.br/'. self::$savedData['ebit_id'] .'" target="_blank" data-noop="redir(this.href);"></a> <script type="text/javascript" id="getSelo" src="https://imgs.ebit.com.br/ebitBR/selo-ebit/js/getSelo.js?'. self::$savedData['ebit_id'] .'"> </script>';
 
         return $html;
     }
@@ -319,7 +338,7 @@ class WoocommerceDisplayEbitBanner
             'productSku'    => ''
         );
 
-        /* ARRUMAR ESSE LOPPING */
+        /* Atribui cada valor ao array */
         foreach ($productsArray as $key => $value) {
             
             //Filtra os dados recebidos (nomes de produtos pode conter aspas)
@@ -380,8 +399,9 @@ class WoocommerceDisplayEbitBanner
      * Função para registrar erros
      * @since 0.1
      */   
-    public function wc_qsti_register_error($stringError){
-        echo $stringError;
+    public function wc_qsti_register_error( $stringError, $code = ''){
+        $error = new WP_Error($code, $stringError );
+        return false;
     }
 
     /**
